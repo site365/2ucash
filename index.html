@@ -155,7 +155,7 @@
       <div>
         <p class="eyebrow">DAILY CASH CLOSING</p>
         <h1>레스토랑 현금 마감 계산기</h1>
-        <p>오늘 숫자만 입력하면 봉투 금액과 보고문이 자동으로 계산됩니다.</p>
+        <p>영수증 금액을 입력하면 봉투 금액과 보고문이 정리됩니다.</p>
       </div>
       <div class="date-box">
         <label for="salesDate">마감 날짜</label>
@@ -187,6 +187,16 @@
               <div class="suffix"><input id="serviceSales" inputmode="numeric" value="0"></div>
               <small>무료 제공 등 서비스 금액이 없으면 0원입니다.</small>
             </div>
+            <div class="field">
+              <label for="netSales">순매출</label>
+              <div class="suffix"><input id="netSales" inputmode="numeric" value="0"></div>
+              <small>영수증에 표시된 순매출 금액을 직접 입력하세요.</small>
+            </div>
+            <div class="field">
+              <label for="totalSales">총매출</label>
+              <div class="suffix"><input id="totalSales" inputmode="numeric" value="0"></div>
+              <small>영수증에 표시된 총매출 금액을 직접 입력하세요.</small>
+            </div>
           </div>
 
           <div class="divider"></div>
@@ -194,7 +204,7 @@
           <div class="grid">
             <div class="field">
               <label for="floatCash">현 시재금</label>
-              <div class="suffix"><input id="floatCash" inputmode="numeric" value="0"></div>
+              <div class="suffix"><input id="floatCash" inputmode="numeric" value="300,000"></div>
               <small>포스기에 남겨둘 돈입니다. 약 300,000원인지 확인하세요.</small>
             </div>
             <div class="field">
@@ -221,7 +231,7 @@
           </div>
           <div class="result-row">
             <span>B. 포스기에 남길 시재금</span>
-            <strong id="floatResult">0원</strong>
+            <strong id="floatResult">300,000원</strong>
           </div>
           <div class="result-row major">
             <span>C. 오늘 봉투에 남아야 할 총금액</span>
@@ -242,7 +252,7 @@
           <div class="actions">
             <button class="primary" id="copyButton" type="button">보고문 복사</button>
             <button class="primary" id="saveButton" type="button">오늘 마감 저장</button>
-            <button class="secondary" id="resetButton" type="button">입력값 0원 초기화</button>
+            <button class="secondary" id="resetButton" type="button">입력값 초기화</button>
             <div class="toast" id="toast" role="status"></div>
           </div>
         </div>
@@ -264,7 +274,7 @@
   </main>
 
   <script>
-    const ids = ["cashSales", "cardSales", "serviceSales", "floatCash", "previousCash", "bankDeposit"];
+    const ids = ["cashSales", "cardSales", "serviceSales", "netSales", "totalSales", "floatCash", "previousCash", "bankDeposit"];
     const STORAGE_KEY = "restaurantCashClosingRecords_v2";
     const won = n => `${Math.round(n).toLocaleString("ko-KR")}원`;
     const numberFrom = value => Number(String(value).replace(/[^0-9-]/g, "")) || 0;
@@ -294,6 +304,8 @@
         cashSales: numberFrom(el("cashSales").value),
         cardSales: numberFrom(el("cardSales").value),
         serviceSales: numberFrom(el("serviceSales").value),
+        netSales: numberFrom(el("netSales").value),
+        totalSales: numberFrom(el("totalSales").value),
         floatCash: numberFrom(el("floatCash").value),
         previousCash: numberFrom(el("previousCash").value),
         bankDeposit: numberFrom(el("bankDeposit").value)
@@ -330,11 +342,11 @@
       const cash = numberFrom(el("cashSales").value);
       const card = numberFrom(el("cardSales").value);
       const service = numberFrom(el("serviceSales").value);
+      const net = numberFrom(el("netSales").value);
+      const total = numberFrom(el("totalSales").value);
       const floatCash = numberFrom(el("floatCash").value);
       const previous = numberFrom(el("previousCash").value);
       const deposit = numberFrom(el("bankDeposit").value);
-      const net = cash + card;
-      const total = net + service;
       const envelope = previous + cash - deposit;
 
       el("addCash").textContent = won(cash);
@@ -374,8 +386,9 @@ ${month}월 누적현금: ${won(envelope)}
       calculate();
     }
 
-    function setAllMoneyToZero() {
+    function resetInputs() {
       ids.forEach(id => { el(id).value = "0"; });
+      el("floatCash").value = "300,000";
       calculate();
     }
 
@@ -408,7 +421,9 @@ ${month}월 누적현금: ${won(envelope)}
         el("cashSales").value = "0";
         el("cardSales").value = "0";
         el("serviceSales").value = "0";
-        el("floatCash").value = "0";
+        el("netSales").value = "0";
+        el("totalSales").value = "0";
+        el("floatCash").value = "300,000";
         el("bankDeposit").value = "0";
 
         const previous = getPreviousCumulative(dateString);
@@ -507,9 +522,9 @@ ${month}월 누적현금: ${won(envelope)}
     el("saveButton").addEventListener("click", saveCurrentRecord);
 
     el("resetButton").addEventListener("click", () => {
-      // 사용자가 요청한 대로 예시값/입력값 초기화는 전부 0원으로 만듭니다.
-      setAllMoneyToZero();
-      showToast("모든 금액을 0원으로 초기화했습니다.");
+      // 입력값 초기화 시 시재금만 기본값 300,000원으로 두고 나머지는 0원으로 만듭니다.
+      resetInputs();
+      showToast("입력값을 초기화했습니다. 시재금은 300,000원으로 설정했습니다.");
     });
 
     el("loadButton").addEventListener("click", () => {
@@ -554,16 +569,18 @@ ${month}월 누적현금: ${won(envelope)}
               cashSales: { type: "number", minimum: 0 },
               cardSales: { type: "number", minimum: 0 },
               serviceSales: { type: "number", minimum: 0 },
+              netSales: { type: "number", minimum: 0 },
+              totalSales: { type: "number", minimum: 0 },
               floatCash: { type: "number", minimum: 0 },
               previousCumulativeCash: { type: "number", minimum: 0 },
               bankDeposit: { type: "number", minimum: 0 }
             },
-            required: ["date", "cashSales", "cardSales", "serviceSales", "floatCash", "previousCumulativeCash", "bankDeposit"],
+            required: ["date", "cashSales", "cardSales", "serviceSales", "netSales", "totalSales", "floatCash", "previousCumulativeCash", "bankDeposit"],
             additionalProperties: false
           },
           annotations: { readOnlyHint: false, untrustedContentHint: false },
           execute(input) {
-            const numericKeys = ["cashSales", "cardSales", "serviceSales", "floatCash", "previousCumulativeCash", "bankDeposit"];
+            const numericKeys = ["cashSales", "cardSales", "serviceSales", "netSales", "totalSales", "floatCash", "previousCumulativeCash", "bankDeposit"];
             if (!input || !/^\d{4}-\d{2}-\d{2}$/.test(input.date) || numericKeys.some(key => !Number.isFinite(input[key]) || input[key] < 0)) {
               throw new Error("날짜와 모든 금액을 올바르게 입력해 주세요.");
             }
@@ -573,6 +590,8 @@ ${month}월 누적현금: ${won(envelope)}
               cashSales: input.cashSales,
               cardSales: input.cardSales,
               serviceSales: input.serviceSales,
+              netSales: input.netSales,
+              totalSales: input.totalSales,
               floatCash: input.floatCash,
               previousCash: input.previousCumulativeCash,
               bankDeposit: input.bankDeposit
